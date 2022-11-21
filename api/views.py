@@ -54,6 +54,19 @@ class UserRegistrationView(APIView):
         else:
             return Response({'error': 'Please Set Password Minimum 8 Characters long'}, status=status.HTTP_201_CREATED)
 
+class ResendVarificationEmail(APIView):
+    renderer_classes = [UserRenderer]
+
+    def post(self,request):
+        if request.data:
+            if User.objects.filter(email=request.data['email']).exists():
+                send_verify_user_token_via_email(request.data['email'])
+                return Response({'msg': 'OTP Sent Successfully'}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({'error': 'Something Went Wrong'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({'error': 'Something Went Wrong'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class VerifyOTP(APIView):
     renderer_classes = [UserRenderer]
@@ -153,18 +166,16 @@ class UserProfileOnboard(APIView):
 
 
     def post(self, request, format=None):
-        try:
-            if UserOnboard.objects.filter(user_id=request.user.id).exists():
-                return Response({'error': 'Profile Already Exist'}, status=status.HTTP_403_FORBIDDEN)
+
+        if UserOnboard.objects.filter(user_id=request.user.id).exists():
+            return Response({'error': 'Profile Already Exist'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            serializer = ProfileOnboardSerializer(data=request.data)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save(user_id=request.user)
+                return Response({'msg': 'Profile Created Successfully'}, status=status.HTTP_200_OK)
             else:
-                serializer = ProfileOnboardSerializer(data=request.data)
-                if serializer.is_valid(raise_exception=True):
-                    serializer.save(user_id=request.user)
-                    return Response({'msg': 'Profile Created Successfully'}, status=status.HTTP_200_OK)
-                else:
-                    return Response({'error': 'Something Went Wrong'}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': e}, status=status.HTTP_200_OK)
+                return Response({'error': 'Something Went Wrong'}, status=status.HTTP_400_BAD_REQUEST)
 
 
     def put(self, request, pk=None):
@@ -194,7 +205,6 @@ class UserProfileView(APIView):
 
     def put(self, request, pk=None):
         if UserProfile.objects.filter(user_id=request.user).exists():
-
             profile = UserProfile.objects.get(user_id=request.user.id)
             serializer = UserProfileSerializer(
                 data=request.data, instance=profile, partial=True)
