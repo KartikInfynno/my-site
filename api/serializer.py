@@ -99,7 +99,7 @@ class PasswordResetSerializer(serializers.Serializer):
 
     class Meta:
         fields = ['password', 'email']
-    
+
     def validate(self, attrs):
         try:
             password = attrs.get('password')
@@ -112,7 +112,7 @@ class PasswordResetSerializer(serializers.Serializer):
             return attrs
         except DjangoUnicodeDecodeError:
             raise serializers.ValidationError('Something Went wrong')
-    
+
 class ProfileOnboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserOnboard

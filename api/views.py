@@ -17,8 +17,8 @@ from .renderers import UserRenderer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from .email import send_verify_user_token_via_email
-from .models import User, UserProfile
-from datetime import date
+from .models import User, UserProfile, UserOnboard
+from datetime import date, datetime
 
 
 def get_tokens_for_user(user):
@@ -40,10 +40,19 @@ class UserRegistrationView(APIView):
     def post(self, request, format=None):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        send_verify_user_token_via_email(serializer.data['email'])
-        token = get_tokens_for_user(user)
-        return Response({'token': token, 'msg': 'Registration Successful'}, status=status.HTTP_201_CREATED)
+        if len(serializer.validated_data['password']) >= 8:
+            user = serializer.save()
+            send_verify_user_token_via_email(serializer.data['email'])
+            UserProfile.objects.create(
+                user_id = user,
+                first_name = serializer.data['name'],
+                email=serializer.data['email'],
+                created_at = datetime.today(),
+            )
+            token = get_tokens_for_user(user)
+            return Response({'token': token, 'msg': 'Registration Successful'}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'error': 'Please Set Password Minimum 8 Characters long'}, status=status.HTTP_201_CREATED)
 
 
 class VerifyOTP(APIView):
@@ -134,13 +143,41 @@ class UserProfileOnboard(APIView):
     renderer_classes = [UserRenderer]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, format=None):
-        serializer = ProfileOnboardSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save(user_id=request.user)
-            return Response({'msg': 'Profile Created Successfully'}, status=status.HTTP_200_OK)
+    def get(self, request):
+        if UserOnboard.objects.filter(user_id=request.user.id).exists():
+            data = UserOnboard.objects.filter(user_id=request.user.id)
+            serializer = ProfileOnboardSerializer(data,many=True)
+            return Response({'data': serializer.data}, status=status.HTTP_200_OK)
         else:
-            return Response({'msg': 'Something Went Wrong'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'Error': "Profile Does Not Exist"}, status=status.HTTP_404_NOT_FOUND)
+
+
+    def post(self, request, format=None):
+        try:
+            if UserOnboard.objects.filter(user_id=request.user.id).exists():
+                return Response({'error': 'Profile Already Exist'}, status=status.HTTP_403_FORBIDDEN)
+            else:
+                serializer = ProfileOnboardSerializer(data=request.data)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save(user_id=request.user)
+                    return Response({'msg': 'Profile Created Successfully'}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'error': 'Something Went Wrong'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': e}, status=status.HTTP_200_OK)
+
+
+    def put(self, request, pk=None):
+        if UserOnboard.objects.filter(user_id=request.user.id).exists():
+            data = UserOnboard.objects.get(user_id=request.user.id)
+            serializer = ProfileOnboardSerializer(
+                data=request.data, instance=data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(updated_at=datetime.today())
+            return Response({'msg': 'Profile Updated Successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'Error': "Profile Does Not Exist"}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 class UserProfileView(APIView):
@@ -155,18 +192,14 @@ class UserProfileView(APIView):
         else:
             return Response({'Error': "Profile Does Not Exist"}, status=status.HTTP_404_NOT_FOUND)
 
-    def post(self, request, format=None):
-        serializer = UserProfileSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save(user_id=request.user)
-            return Response({'msg': 'Profile Created Successfully'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'msg': 'Something Went Wrong'}, status=status.HTTP_400_BAD_REQUEST)
-
     def put(self, request, pk=None):
-        profile = UserProfile.objects.get(user_id=request.user.id)
-        serializer = UserProfileSerializer(
-            data=request.data, instance=profile, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(user_id=request.user)
-        return Response({'msg': 'Profile Updated Successfully'}, status=status.HTTP_200_OK)
+        if UserProfile.objects.filter(user_id=request.user).exists():
+
+            profile = UserProfile.objects.get(user_id=request.user.id)
+            serializer = UserProfileSerializer(
+                data=request.data, instance=profile, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(user_id=request.user)
+            return Response({'msg': 'Profile Updated Successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'Error': "Profile Does Not Exist"}, status=status.HTTP_404_NOT_FOUND)

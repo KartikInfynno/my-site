@@ -8,7 +8,6 @@ urlpatterns = [
     path('verify/account/', views.VerifyOTP.as_view()),
     path('profile/onboard/', views.UserProfileOnboard.as_view()),
     path('profile/', views.UserProfileView.as_view(),),
-    path('create/profile/', views.UserProfileView.as_view()),
     path('update/profile/', views.UserProfileView.as_view()),
     path('change/password/', views.UserChangePassword.as_view()),
     path('password/reset/email/', views.SendPasswordResetEmail.as_view()),

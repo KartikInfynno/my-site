@@ -23,4 +23,6 @@ urlpatterns = [
     path('activity/weekly-statistics/', views.ShowWeeklyActivityStatistics.as_view()),
     path('activity/monthly-statistics/', views.ShowMonthlyActivityStatistics.as_view()),
     path('activity/yearly-statistics/', views.ShowYearlyActivityStatistics.as_view()),
+    path('water/goal/date/',views.ShowWaterGoalByDate.as_view()),
+    path('activity/date/',views.ShowActivityByDate.as_view()),
 ]
